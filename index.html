@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Knud Reckwegs Eventyr</title>
+<style>body{margin:0}img{max-width:100%}</style>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: one retro adventure "monitor" - scene on top, narrator panel, verb bar and pockets below. Single dark look by choice. */
+:root{
+  color-scheme:dark;
+  --night:#15132b; --panel:#24214a; --panel-hi:#35316b; --ink:#f4ecd0; --dim:#a9a3c9;
+  --amber:#ffb52e; --teal:#58d6c4; --rose:#ff6b7d;
+  --display:"Silkscreen","Courier New",monospace; --body:"VT323","Courier New",monospace;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:22px;line-height:1.15;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;box-sizing:border-box}
+#app{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+h1{font-family:var(--display);font-size:clamp(26px,6vw,52px);line-height:1.05;margin:0;color:var(--amber);text-wrap:balance;text-shadow:3px 3px 0 #7a2c3a}
+.sub{color:var(--teal);font-size:24px;margin:0}
+button{font-family:var(--display);font-size:14px;color:var(--ink);background:var(--panel);border:2px solid var(--panel-hi);padding:10px 6px;cursor:pointer;min-width:0}
+button:hover{background:var(--panel-hi)}
+button:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+button.on{background:var(--amber);color:var(--night);border-color:var(--amber)}
+button.big{font-size:18px;padding:14px 22px;background:var(--amber);color:var(--night);border-color:var(--amber)}
+button.big.alt{background:var(--panel);color:var(--ink);border-color:var(--panel-hi)}
+canvas{display:block;width:100%;max-width:100%;aspect-ratio:320/170;image-rendering:pixelated;background:#000;border:3px solid var(--panel-hi);box-sizing:border-box;cursor:crosshair;touch-action:manipulation}
+#title{display:flex;flex-direction:column;gap:16px;padding-block:8px}
+#title canvas{aspect-ratio:320/60;cursor:default}
+#title p{margin:0;max-width:60ch}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+#card{display:flex;flex-direction:column;gap:14px;padding:24px 0}
+#card .yr{font-family:var(--display);font-size:clamp(40px,12vw,84px);color:var(--amber);line-height:1}
+#card .pl{font-family:var(--display);color:var(--teal);font-size:16px;letter-spacing:.06em;text-transform:uppercase}
+#card p{margin:0;max-width:58ch;font-size:25px}
+#msg{background:var(--panel);border:2px solid var(--panel-hi);padding:10px 12px;min-height:4.7em;cursor:pointer;box-sizing:border-box;font-size:24px}
+#msg .who{font-family:var(--display);font-size:13px;color:var(--amber);display:block;margin-bottom:2px}
+#msg .more{color:var(--teal);float:right;font-size:18px;animation:bl 1s steps(2) infinite}
+#msg.idle{color:var(--dim);cursor:default}
+@keyframes bl{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){#msg .more{animation:none}}
+#verbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+#inv{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:42px}
+#inv .lbl,#score{font-family:var(--display);font-size:12px;color:var(--dim)}
+#inv button{font-family:var(--body);font-size:21px;padding:4px 10px;border-color:var(--teal)}
+#inv button.on{border-color:var(--amber)}
+#util{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
+#util button{font-size:12px;padding:7px 9px}
+kbd{font-family:var(--display);font-size:11px;color:var(--teal)}
+.k{display:none;color:var(--teal);font-size:10px;margin-right:5px}
+button.on .k{color:var(--night)}
+#keys{display:none;font-family:var(--display);font-size:11px;color:var(--dim);margin:0;line-height:1.6}
+@media (hover:hover) and (pointer:fine){.k{display:inline}#keys{display:block}}
+#end .rank{font-family:var(--display);color:var(--teal);font-size:20px}
+</style>
+
+</head>
+<body>
+<div id="app">
+  <section id="title">
+    <h1>Knud Reckwegs Eventyr</h1>
+    <p class="sub">Et peg-og-klik-eventyr fra Mimersgade til Næstvedgade</p>
+    <canvas id="strip" width="960" height="180" aria-label="Knud i syv aldre"></canvas>
+    <p>Du er Knud. Du er født i 1945 og har et helt liv foran dig. Vælg et verbum, klik på tingene (eller brug piletaster og Enter), og find ud af det undervejs. Det gjorde han også selv.</p>
+    <div class="row">
+      <button class="big" id="bNew">Start spillet</button>
+      <button class="big alt" id="bCont" hidden>Fortsæt, hvor du slap</button>
+    </div>
+  </section>
+
+  <section id="card" hidden>
+    <div class="pl" id="cPl"></div>
+    <div class="yr" id="cYr"></div>
+    <div id="cTx" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="row"><button class="big" id="bGo">Videre</button></div>
+  </section>
+
+  <section id="game" hidden style="display:flex;flex-direction:column;gap:8px">
+    <canvas id="cv" width="960" height="510" aria-label="Spilscene"></canvas>
+    <div id="msg" class="idle" role="status" aria-live="polite"></div>
+    <div id="verbs"></div>
+    <div id="inv"></div>
+    <div id="util">
+      <div class="row" style="gap:6px">
+        <button id="bTip">Giv mig et tip</button>
+        <button id="bHot">Vis alt, man kan klikke på</button>
+        <button id="bSnd">Lyd: til</button>
+      </div>
+      <span id="score"></span>
+    </div>
+    <p id="keys">Tastatur: <kbd>← →</kbd> gå &nbsp; <kbd>↑ ↓</kbd> vælg ting &nbsp; <kbd>Enter</kbd> udfør / videre &nbsp; <kbd>1-5</kbd> eller <kbd>G S T A B</kbd> verber &nbsp; <kbd>6-0</kbd> lommer &nbsp; <kbd>H</kbd> tip &nbsp; <kbd>Esc</kbd> fortryd</p>
+  </section>
+
+  <section id="end" hidden style="display:flex;flex-direction:column;gap:14px;padding:24px 0">
+    <h1>Hvad var det bedste ved din oplevelse?</h1>
+    <p id="eScore" style="margin:0;font-size:28px"></p>
+    <p class="rank" id="eRank" style="margin:0"></p>
+    <p style="margin:0;max-width:58ch">Tak, fordi du spillede dit eget liv igennem, far. Du er god nok på bunden. Og der er slet ikke så langt derned. Hu hu hi hi.</p>
+    <div class="row"><button class="big" id="bAgain">Spil igen</button></div>
+  </section>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const cv=$('cv'),cx=cv.getContext('2d');
+let C=cx;
+const R=(x,y,w,h,c)=>{C.fillStyle=c;C.fillRect(x,y,w,h)};
+const T=(s,x,y,c,z=6,al='left')=>{C.fillStyle=c;C.font=z+'px Silkscreen, monospace';C.textAlign=al;C.fillText(s,x,y)};
+const SK='#f0c8a0';
+
+function person(x,y,o){
+  const s=o.s||1,d=o.dir||1,fr=o.frame||0,sk=o.skin||SK;
+  const r=(dx,dy,w,h,c)=>R(x+dx*s,y+dy*s,w*s,h*s,c);
+  if(o.long)r(-5,-38,10,13,o.hair);
+  if(o.sit){r(d>0?-4:-6,-3,10,3,o.pants);r(d>0?5:-8,-3,3,11,o.pants);r(d>0?5:-10,7,5,2,'#221a14')}
+  else{
+    const a=fr==1?1:0,b=fr==2?1:0;
+    r(-4-a,-14,3,14-b,o.pants);r(1+b,-14,3,14-a,o.pants);
+    r(-5-a,-2-b,4,2,'#221a14');r(1+b,-2-a,4,2,'#221a14');
+  }
+  if(o.dress)r(-6,-16,12,11,o.dress);
+  r(-5,-28,10,14,o.shirt);r(-7,-27,2,11,o.shirt);r(5,-27,2,11,o.shirt);r(-7,-17,2,2,sk);r(5,-17,2,2,sk);
+  if(o.apron)r(-4,-25,8,18,'#f4f0e6');
+  if(o.tie)r(-1,-28,2,8,o.tie);
+  r(-4,-37,8,9,sk);
+  if(!o.bald)r(-4,-38,8,3,o.hair);
+  r(d>0?-5:3,-37,2,5,o.hair);
+  r(d>0?1:-3,-34,2,1.5,'#222');
+  if(o.glasses){r(d>0?0:-4,-35,4,.8,'#111');r(d>0?0:-4,-33,4,.8,'#111');r(d>0?-4:0,-34.5,4,.6,'#111')}
+  if(o.beard)r(-4,-31,8,4,o.beard);
+  if(o.hat){r(-5,-41,10,4,o.hat);r(d>0?-3:-9,-38,12,1.5,o.hat)}
+}
+function dog(x,y,d,t,gl){
+  const w=Math.floor(t/10)%2;
+  R(x-9,y-11,18,7,'#8a5a2e');R(x-8,y-5,2,5,'#6f4622');R(x-4,y-5,2,5,'#6f4622');R(x+2,y-5,2,5,'#6f4622');R(x+6,y-5,2,5,'#6f4622');
+  const hx=d>0?x+7:x-14;R(hx,y-16,7,7,'#8a5a2e');R(d>0?hx+5:hx-2,y-13,4,3,'#a87440');R(d>0?hx+8:hx-2,y-13,1,1,'#111');
+  R(d>0?hx:hx+5,y-17,2,5,'#5a3818');R(d>0?hx+4:hx+2,y-14,1,1,'#111');
+  R(d>0?x-11:x+9,y-13-w*2,2,4+w*2,'#8a5a2e');
+  if(gl){R(d>0?hx+4:hx-3,y-11,6,1,'#111');R(d>0?hx+4:hx-3,y-12,2,2,'#9cf');R(d>0?hx+8:hx+1,y-12,2,2,'#9cf')}
+}
+function room(wall,stripe,floor,line){
+  R(0,0,320,118,wall);if(stripe)for(let i=0;i<320;i+=16)R(i,0,2,118,stripe);
+  R(0,113,320,5,'#2e241c');R(0,118,320,52,floor);if(line)for(let i=13;i<52;i+=13)R(0,118+i,320,1,line);
+}
+function box(x,y,w,h,label,tape){R(x,y,w,h,'#b58a52');R(x,y,w,3,'#9a733f');R(x,y+h-1,w,1,'#7f5d30');if(tape)R(x+w/2-3,y,6,h,'#e6d9a8');T(label,x+w/2,y+h/2+3,'#4a3214',5,'center')}
+
+/* ---------- content ---------- */
+const ITEMS={
+ kugler:['Glaskugler','Tre glaskugler. Hård valuta i enhver baggård på Nørrebro.'],
+ rangle:['Rangle','En rød rangle. Den larmer, men mindre end Nina.'],
+ kage:['Småkage','En vaniljekrans. Stadig lun.'],
+ ordbog:['Ordbog','Dansk-engelsk ordbog, 1958-udgaven. Indeholder ordet "automobile", men ikke "cool".'],
+ dime:['Dime','Ti amerikanske cent. Mindre end en femogtyveøre, men mere værd. Typisk.'],
+ kaffe:['Kop kaffe','Amerikansk kaffe. Man kan se bunden af koppen. Det er ikke et kvalitetstegn.'],
+ notater:['Notater','Fiskerens historie om hummeren Big Earl. Halvdelen er løgn. Den gode halvdel.'],
+ blanket:['Blanket 27B','Blanket 27B til rekvisition af blanketter. Bagsiden er dejligt blank.'],
+ artikel:['Artikel','Din analyse af dansk eksport, skrevet på bagsiden af en blanket. Den mangler et stempel.'],
+ noegle:['Lille nøgle','En lille messingnøgle. Den lugter af gummitræ.'],
+ stempel:['Stempel','GODKENDT. Tre års sagsbehandling samlet i ét håndtag.'],
+ stemplet:['Stemplet artikel','Din artikel, nu officielt GODKENDT af Kongeriget Danmark. Stemplet af dig selv, men alligevel.'],
+ kande:['Kaffekande','Kaffe, der har stået siden fredag. Den kan vække de døde. Eller en kollega.'],
+ papir:['Papirstak','En stak papir. Lidt varm og let krøllet efter at have været hovedpude.'],
+ manus:['Manuskript','Første nummer. Tæt skrevet, klogt tænkt og med kun to slåfejl.'],
+ stol:['Stol','En kontorstol i lommen. Spørg ikke hvordan.'],
+ svaerte:['Tryksværte','En flaske tryksværte. Den vil på skjorten. Du kan mærke det.'],
+ tier:['Tier','En tikrone. I 1984 er det en formue, hvis man er elleve.'],
+ slips:['Slips','Et slips. Bredt. Det er 1984, det skal være sådan.'],
+ bamse:['Bamse','Frederiks bamse. Den mangler et øje og har set ting.'],
+ ring:['Vielsesring','Ringen. Lidt fugtig.'],
+ saks:['Saks','En køkkensaks. Den eneste ting, der er pakket ud.'],
+ tale:['Tale','Talen til pressemødet i Billund. Tre sider. Ordet "klods" optræder 41 gange.'],
+ is:['Isvaffel','En isvaffel fra fryseren. Det eneste, der er kommet på plads i køkkenet.'],
+ ledning:['Telefonledning','Ledningen til faxen. Lidt slidt efter 200 hop.'],
+ klods:['LEGO-klods','En rød 2x4. Den har smagt blod.'],
+ godbid:['Godbid','En hundekiks. Lugter af lever. Balou kan lugte den gennem tre vægge.'],
+ briller:['Læsebriller','Dine læsebriller. Med let hundesavl på venstre glas.'],
+ snor:['Hundesnor','Balous snor. Ordet "snor" må ikke siges højt i lejligheden.'],
+};
+const POINTS={kugler:5,rangle:5,nina:5,kage:5,avis:10, dime:5,forstaa:5,kaffe:5,historie:5,byline:10,
+ tlf:5,artikel:5,noegle:5,stempel:5,stemplet:5,sendt:10, navn:5,kande:5,papir:5,manus:5,stol:5,svaerte:5,tryk:10,
+ jakke:5,slips:5,bamse:5,ring:5,gift:10, saks:5,tale:5,is:5,ledning:5,klods:5,fax:10, godbid:5,briller:5,mail:5,snor:5,ud:10};
+const MAX=Object.values(POINTS).reduce((a,b)=>a+b,0);
+const SPEAKERS=['Alle','Knud','Gunhild','Christian','Hans Jørgen','Nina','Betty','Fiskeren','Chuck','Børsen','Kontorchefen','Buddet','Kollegaen','Ditte','Frederik','Anja','Adam','Julie','Balou','Mail'];
+const DEF={
+ Se:['Du ser nøje efter. Der er ikke mere at se, end der var før.','Ganske almindeligt. Du noterer det alligevel.'],
+ Tal:['Den svarer ikke. Det havde været mere bekymrende, hvis den gjorde.','Du siger noget klogt. Ingen reaktion. Det er du vant til fra møder.'],
+ Tag:['Den kan du ikke bare tage med dig.','Nej. Den bliver, hvor den er.'],
+ Brug:['Du aner ikke, hvad du skulle bruge den til.','Det fører ingen steder hen. Ligesom visse udvalg.'],
+ med:['Det kommer der ikke noget ud af.','Kreativt. Men nej.','Det virkede bedre inde i dit hoved.']};
+
+const CH=[
+/* 1 */{
+ card:['1945','Mimersgade, Nørrebro',['Danmark er lige blevet frit. I en lejlighed på Mimersgade kommer Knud Reckweg til verden.','Mor Gunhild og far Christian har i forvejen Hans Jørgen på to. Fem år senere kommer lillesøster Nina.','Vi springer til 1951. Du er seks år. Det regner, og du keder dig.']],
+ k:()=>({s:.58,hair:'#4a2a1a',shirt:'#e0d8c0',pants:'#5a4632'}),start:70,
+ draw(G,t){
+  room('#7c9a78','#6f8d6b','#9a6a3e','#7f5530');
+  R(126,18,64,54,'#efe6d0');R(130,22,56,46,'#8fb2c8');R(130,52,56,16,'#a8553f');R(140,44,8,10,'#8a4030');R(166,47,6,6,'#8a4030');R(157,22,2,46,'#efe6d0');R(130,44,56,2,'#efe6d0');
+  for(let i=0;i<5;i++)R(134+i*11,24+((t+i*9)%22),1,4,'#d4e6f2');
+  R(128,98,56,28,'#5b3a22');R(128,98,56,3,'#724a2c');R(140,82,30,16,'#3d2a1c');R(144,86,12,8,'#c9b27a');R(160,87,6,6,'#1c1c1c');
+  if(t%60<30)T('♪',172,80,'#efe6d0',7);
+  R(10,84,84,14,'#9c3f50');R(10,96,84,26,'#8a3444');R(6,92,8,30,'#7a2c3a');R(90,92,8,30,'#7a2c3a');R(14,122,76,6,'#1d1410');
+  if(!G.f.kugler){R(40,125,2,2,'#6cf');R(46,126,2,2,'#f66');R(52,125,2,2,'#fd5')}
+  person(112,148,{s:.66,hair:'#5a3a1a',shirt:'#3f6a9a',pants:'#4a3a2a'});
+  if(!G.f.rangle){R(118,134,1.5,6,'#eee');R(116,130,6,5,'#e33')}else{R(104,146,2,2,'#6cf');R(108,147,2,2,'#f66')}
+  person(200,146,{hair:'#6a4a2a',long:1,shirt:'#b55a6a',dress:'#b55a6a',apron:1,pants:SK,dir:-1});
+  R(214,100,44,3,'#e9e2cf');for(let i=0;i<=42;i+=6)R(214+i,103,1.5,22,'#e9e2cf');R(214,124,44,3,'#e9e2cf');R(218,98,36,4,'#f7f3ea');
+  R(231,92,8,7,SK);R(231,91,8,2,'#d8b060');
+  if(!G.f.nina){R(234,96,3,2,'#a33');if(t%40<22)T('WAAH!',225,86,'#fff',6)}else R(246,94,5,5,'#e33');
+  R(266,78,44,16,'#55678a');R(266,92,44,34,'#4a5a7a');R(262,90,6,36,'#3f4d68');R(308,90,6,36,'#3f4d68');
+  person(290,110,{sit:1,hair:'#444',shirt:'#6a5a4a',pants:'#333',dir:-1,tie:'#222'});
+  if(!G.f.avis){
+   if(G.f.nina){R(278,70,24,15,'#f4f0e0');for(let i=0;i<4;i++)R(280,73+i*3,20,1,'#999');T(t%50<25?'z Z':'Z z',300,64,'#fff',6)}
+   else{R(270,86,26,20,'#f4f0e0');R(272,88,22,3,'#333');for(let i=0;i<4;i++)R(272,93+i*3,22,1,'#999')}
+  }
+ },
+ hs:[
+  {id:'vindue',n:'vinduet',r:[126,18,64,54],Se:'Mimersgade. Brosten, baggårde og lugten af koks. Verden er stor. Du har indtil videre set to gader af den.'},
+  {id:'radio',n:'radioen',r:[138,80,34,18],Se:'Radioen spiller Pressens Radioavis. Du lytter andægtigt. Andre børn leger i gården.',Brug:'Du drejer på knappen. Mere radioavis. Du er tilfreds.'},
+  {id:'sofa',n:'sofaen',r:[6,84,92,46],wx:50,Se:G=>G.f.kugler?'Sofaen. Der er ikke mere under den, du har lyst til at røre ved.':'Under sofaen er der mørkt, støvet og fuldt af muligheder. Noget glimter derinde.',
+   Tag:G=>{if(G.f.kugler)return'Du har allerede støvsuget sofaen for værdier.';G.f.kugler=1;give('kugler');pt('kugler');return'Du stikker armen ind under sofaen og finder tre glaskugler, en knap og noget, du vælger ikke at undersøge nærmere.'}},
+  {id:'hans',n:'Hans Jørgen',r:[102,120,22,30],wx:90,Se:'Storebror Hans Jørgen. To år ældre og fast besluttet på, at det skal du aldrig glemme.',Brug:['Du kilder Hans Jørgen i siden. Han hyler.','Knud: Hu hu hi hi!','Hans Jørgen: MOAAAR!','Gunhild: Knud. Lad din bror være.','Det var det værd.'],
+   Tal:G=>G.f.rangle?['Hans Jørgen: Gå væk. Jeg spiller kugler.']:['Hans Jørgen: Jeg har ranglen, fordi jeg er ældst. Sådan er reglerne.','Hans Jørgen: Hvis jeg havde mine glaskugler, gad jeg ikke sidde med noget babylegetøj.'],
+   med:{kugler:G=>{drop('kugler');give('rangle');G.f.rangle=1;pt('rangle');return['Hans Jørgen: Mine kugler! Hvor fandt du dem?','Knud: Kilden ønsker at være anonym.','Han kaster ranglen efter dig.','Knud: Du er god nok på bunden, Hans Jørgen. Det er bare en skam, der er så langt derned.','Du er seks år og har lige fundet på en replik, du kommer til at bruge resten af livet.']}}},
+  {id:'gunhild',n:'mor Gunhild',r:[190,106,20,42],wx:176,Se:'Mor Gunhild. Hun holder sammen på tre børn, en mand og en husholdning. Hun gør det med et forklæde og et blik.',
+   Tal:G=>{if(!G.f.nina)return['Gunhild: Knud, min skat, kan du ikke få Nina til at falde til ro?','Gunhild: Så laver jeg boller i karry til aften. Og der er en småkage til dig med det samme.','Boller i karry. Mors boller i karry. Der findes ikke det, du ikke ville gøre.'];if(!G.f.kage){G.f.kage=1;give('kage');pt('kage');return['Gunhild: Du er en god dreng, Knud. Her. Nybagt. Og så bliver det boller i karry i aften.','Du får en vaniljekrans og et løfte om livretten. Den første bonusordning i din karriere.']}return'Gunhild: Ikke flere småkager før aftensmad.'}},
+  {id:'nina',n:'Nina',r:[212,88,48,40],wx:205,Se:G=>G.f.nina?'Nina sover med ranglen i hånden. Lejligheden kan høre sig selv tænke.':'Lillesøster Nina. Et år gammel og udstyret med lunger som en havnefoged.',
+   Tal:G=>G.f.nina?'Ssh. Lad hende sove.':['Knud: Nina, hør nu her. Lad os tale om det.','Nina: WAAAAH!','Forhandlingerne er brudt sammen.'],
+   med:{rangle:G=>{drop('rangle');G.f.nina=1;pt('nina');return['Du rækker Nina ranglen. Hun ryster den to gange, gaber og falder i søvn.','Der bliver helt stille i stuen. Så stille, at far Christian begynder at nikke bag avisen.']},kage:'Hun har ingen tænder at tale om. Spis den selv.'}},
+  {id:'far',n:'far Christian og avisen',r:[262,66,50,62],wx:250,Se:G=>G.f.nina?'Far Christian sover med avisen over ansigtet. Den ligger frit fremme.':'Far Christian læser avis. Den avis er det mest interessante i hele lejligheden, og han har den.',
+   Tal:G=>G.f.nina?'Christian: Zzz... valuta... zzz.':['Knud: Far, må jeg læse med?','Christian: Ikke nu, Knud. Far læser om valutakurser.','Du er seks år og ved ikke, hvad en valutakurs er. Det generer dig mere, end det burde.'],
+   Tag:G=>{if(!G.f.nina)return'Christian: Fingrene væk, Knud. Der er for meget larm til, at jeg kan undvære den.';G.f.avis=1;pt('avis');finish(['Du løfter forsigtigt avisen af fars ansigt. Han snorker videre.','Du læser forsiden. Så side to. Så erhvervssiderne.','Du forstår ikke det hele. Men du forstår, at nogen har skrevet det, og at alle de voksne læser det.','Knud: Det dér vil jeg lave.','Seks år gammel har du lagt en karriereplan. Hans Jørgen har lagt en kugle i næsen.','Ude fra køkkenet breder der sig en duft af karry. Det er en god dag.'])},
+   med:{kage:'Han sover eller læser. I begge tilfælde er han ikke til at bestikke.'}},
+ ],
+ hint:G=>!G.f.kugler?'Hans Jørgen savner sine glaskugler. Har du kigget under sofaen? Prøv at TAGE dér.':!G.f.rangle?'Giv Hans Jørgen kuglerne: tryk Brug, vælg kuglerne, og klik på ham.':!G.f.nina?'Nina mangler noget at ryste. Brug ranglen med hende.':'Far sover. Avisen ligger frit. TAG den.'
+},
+/* 2 */{
+ card:['1963','Maine, USA',['Du er 17 år og rejser til USA for at studere et år i Maine.','Med dig har du en kuffert, en ordbog og et engelsk, der virkede fint hjemme i København.','Skoleavisen mangler en forsidehistorie. Du mangler alt andet.']],
+ k:()=>({s:.92,hair:'#4a2a1a',shirt:'#c94a3a',pants:'#34507a'}),start:120,
+ init:G=>{give('ordbog')},
+ draw(G,t){
+  R(0,0,320,70,'#ead9a6');R(0,70,320,48,'#3f8f8a');R(0,68,320,3,'#d8452e');
+  for(let y=0;y<4;y++)for(let x=0;x<24;x++)R(x*14,118+y*13,14,13,(x+y)%2?'#efe9da':'#2b2b33');
+  T('LOBSTER POT DINER',160,14,'#d8452e',8,'center');
+  R(108,20,84,48,'#fff');R(112,24,76,40,'#8fd0f0');R(112,48,76,16,'#2f6f9f');R(160,30,7,20,'#fff');R(160,34,7,4,'#d8452e');R(160,42,7,4,'#d8452e');R(158,27,11,3,'#333');R(152,48,24,4,'#6a6a5a');
+  if(t%80<40)R(169,28,10,1,'#ffe');
+  R(12,74,34,54,'#a8322a');R(15,70,28,8,'#d8452e');R(17,80,24,18,'#ffd75e');R(17,100,24,10,'#3a2a2a');for(let i=0;i<4;i++)R(19+i*6,102,3,6,['#5cf','#f6c','#6f6','#fd5'][(i+Math.floor(t/20))%4]);R(24,116,10,5,'#222');
+  if(!G.f.dime)R(28,118,2,2,'#ddd');
+  R(60,104,44,4,'#e9e2cf');R(80,108,4,18,'#888');R(52,96,10,30,'#d8452e');R(102,96,10,30,'#d8452e');
+  person(70,118,{sit:1,hair:'#aaa',shirt:'#e8c020',pants:'#444',hat:'#e8c020',beard:'#ddd'});
+  if(G.f.historie)R(86,99,4,5,'#fff');
+  R(140,106,48,4,'#e9e2cf');R(162,110,4,16,'#888');R(150,97,14,9,'#333');R(152,93,10,5,'#eee');
+  person(178,118,{sit:1,hair:'#d8b060',shirt:'#fff',pants:'#55452a',dir:-1,glasses:1,tie:'#234'});
+  person(262,122,{hair:'#c0392b',long:1,shirt:'#f7b6c2',dress:'#f7b6c2',apron:1,pants:SK,dir:-1});
+  R(212,94,108,5,'#d9d9d9');R(212,99,108,27,'#c0392b');R(212,110,108,2,'#eee');
+  R(224,88,12,2,'#fff');R(226,84,8,4,'#e2552f');R(224,83,3,2,'#e2552f');R(233,83,3,2,'#e2552f');
+  R(292,80,9,14,'#444');R(294,82,5,6,'#6a3a1a');R(301,84,3,5,'#444');
+ },
+ hs:[
+  {id:'vindue',n:'vinduet',r:[108,20,84,48],Se:'Atlanterhavet og et fyrtårn. På den anden side ligger Danmark. Det er første gang, du er længere væk end Amager.'},
+  {id:'juke',n:'jukeboxen',r:[12,70,34,58],wx:56,Se:'En jukebox. Den spiller Elvis. Hjemme i Danmark spiller radioen stadig Giro 413.',
+   Brug:'Den koster en dime pr. sang. Du har brug for mønten til vigtigere ting. Sikkert.',
+   Tag:G=>{if(G.f.dime)return'Returskålen er tom. Lykken står ikke to gange i samme jukebox.';G.f.dime=1;give('dime');pt('dime');return'Du stikker fingeren i returskålen. En dime! Ti cent. Det amerikanske eventyr er i gang.'}},
+  {id:'fisker',n:'den gamle fisker',r:[58,78,28,44],wx:98,Se:'En gammel hummerfisker i gul sydvest. Han ligner en, der har en historie. Han ligner også en, der ikke giver den væk gratis.',
+   Tal:G=>!G.f.forstaa?['Fiskeren: Ayuh. Cah\'s pahked down by the hahbah, bub.','Du forstår ikke et ord. Og du var ellers den bedste i klassen til engelsk.','Måske står det i ordbogen.']:G.f.historie?'Fiskeren: Ayuh.':['Knud: Sir, do you have a story for the school newspaper?','Fiskeren: No coffee, no story.','Det forstod du. Fremskridt.'],
+   med:{ordbog:G=>{if(G.f.forstaa)return'Du har allerede knækket koden. Tal langsomt, nik meget.';G.f.forstaa=1;pt('forstaa');return['Du slår op under "Ayuh". Det står der ikke.','Men bagerst har en tidligere ejer skrevet med blyant: "Maine: De dropper alle r\'er. Tal langsomt, nik meget, medbring kaffe."','Pludselig giver manden mening.']},
+    kaffe:G=>{if(!G.f.forstaa)return'Du vil gerne give ham kaffen, men aner ikke, hvad han svarer bagefter. Få styr på sproget først.';drop('kaffe');give('notater');G.f.historie=1;pt('historie');return['Fiskeren tager kaffen, drikker halvdelen og læner sig frem.','Fiskeren: Big Earl. Biggest lobstah in Maine. Forty pounds. Took my boot in \'52. Still wearin\' it.','Du skriver, så blyanten gløder. Det meste er løgn. Det er den bedste historie, du nogensinde har hørt.']},dime:'Fiskeren: Keep ya money, bub. Bring coffee.'}},
+  {id:'chuck',n:'Chuck fra skoleavisen',r:[146,78,44,44],wx:132,Se:'Chuck. Redaktør for skoleavisen. Han har skjorteærmerne rullet op, som om han var på New York Times.',
+   Tal:['Chuck: You\'re the exchange kid from... Sweden?','Knud: Denmark.','Chuck: Same thing. Listen, I need a front-page story by tonight. Bring me one, and you get a byline.','Et byline. Dit navn på tryk. Du mærker noget i maven, og det er ikke hummeren.'],
+   med:{notater:G=>{drop('notater');pt('byline');finish(['Chuck læser. Han læser igen. Han tager brillerne af.','Chuck: Kid. This is front page.','Næste morgen ligger skoleavisen i hele byen. "THE LEGEND OF BIG EARL".','Nedenunder står dit allerførste byline: "By Knute Rockwig".','De har stavet det forkert. Du klipper det ud alligevel.','Knud: Chuck, hvad var det bedste ved din oplevelse?','Chuck: What?','Det spørgsmål skal lige modnes i nogle årtier.'])},ordbog:'Chuck: I speak English, pal. Allegedly.'}},
+  {id:'betty',n:'Betty',r:[250,82,24,14],wx:236,Se:'Betty bag disken. Hun kalder alle "hon" og kan bære fire tallerkener på én arm.',
+   Tal:['Betty: What\'ll it be, hon?','Knud: One coffee, be so kind?','Betty: That\'s ten cents. And nobody talks like that.','Knud: In Denmark we say: the coffee is on the house. Because it is a coffee house.','Betty ser på dig i lang tid.','Knud: Hu hu hi hi.','Din første dårlige joke på engelsk. Der kommer flere.'],
+   med:{dime:G=>{drop('dime');give('kaffe');pt('kaffe');return['Betty: There you go, hon.','Du får en kop kaffe. Den er tynd som en undskyldning, men den er varm.']},ordbog:'Betty: Honey, I ain\'t got time to read.'}},
+  {id:'hummer',n:'hummeren',r:[222,82,16,12],wx:216,Se:'En hummer. I Maine er det hverdagskost. Hjemme på Mimersgade ville den udløse et familieråd.',Tag:'Betty: That one\'s a dollar fifty, hon. Du lægger den forsigtigt tilbage.'},
+  {id:'kande',n:'kaffemaskinen',r:[290,78,16,16],wx:236,Se:'Kaffen står bag disken. Betty bevogter den.',Tag:'Betty: Paws off, hon. Ten cents.'},
+ ],
+ hint:G=>!G.f.forstaa?'Du forstår ikke fiskeren. Brug ordbogen med ham.':!G.f.dime&&!G.f.historie?'Fiskeren vil have kaffe, og kaffe koster en dime. Prøv at TAGE fra jukeboxen.':has('dime')?'Brug din dime med Betty bag disken.':has('kaffe')?'Giv kaffen til fiskeren.':'Giv dine notater til Chuck.'
+},
+/* 3 */{
+ card:['1970','Udenrigsministeriet, København',['Hjemme igen. Voksen, velklædt og ansat i Udenrigsministeriet.','Her er højt til loftet og langt til en beslutning.','Så ringer telefonen.']],
+ k:()=>({s:1,hair:'#4a2a1a',shirt:'#3a3f55',pants:'#3a3f55',tie:'#a33'}),start:96,
+ draw(G,t){
+  room('#b9b29a',null,'#3f5a4a','#375044');R(0,60,320,2,'#a59e86');
+  R(150,14,28,34,'#6a4a1e');R(153,17,22,28,'#d8cfae');R(160,22,8,9,SK);R(158,31,12,12,'#2a3a6a');T('KONGEN',164,56,'#5a5444',5,'center');
+  R(60,18,60,40,'#efe6d0');R(64,22,52,32,'#a9d0ea');R(89,22,2,32,'#efe6d0');R(64,44,52,10,'#8a7a6a');R(70,36,6,10,'#6a8a7a');R(98,30,4,16,'#6a8a7a');
+  R(14,112,14,14,'#8a4a2a');R(19,84,3,28,'#3a5a2a');for(const[a,b]of[[8,70],[20,62],[26,78],[6,88],[24,92]])R(a,b,12,8,'#2f7a3a');
+  if(!G.f.noegle&&t%50<8)R(22,80,2,2,'#ffe58a');
+  R(56,100,84,5,'#7a5a34');R(60,105,5,21,'#5f4526');R(131,105,5,21,'#5f4526');
+  R(62,86,16,14,'#f4f0e0');R(63,88,14,1,'#999');R(63,92,14,1,'#999');R(63,96,14,1,'#999');
+  R(84,90,22,10,'#2b2b2b');R(87,84,16,6,'#eee');R(86,92,18,2,'#555');
+  R(116,93,14,7,'#111');R(114,90,18,3,'#111');
+  if(!G.f.tlf&&t%30<15){T('RING',123,84,'#ff6b7d',6,'center');R(112,88,2,2,'#ff6b7d');R(132,88,2,2,'#ff6b7d')}
+  R(150,64,32,62,'#6a7a6a');for(let i=0;i<3;i++){R(153,68+i*19,26,16,'#7c8d7c');R(163,75+i*19,6,2,'#333')}
+  if(G.f.stempel)R(153,106,26,16,'#222');
+  person(232,112,{sit:1,hair:'#777',bald:1,shirt:'#2a2a2a',pants:'#2a2a2a',dir:-1,glasses:1,tie:'#555'});
+  R(198,98,66,5,'#5a3a1e');R(198,103,66,23,'#4a2e16');R(204,88,14,10,'#f4f0e0');R(244,90,10,8,'#f4f0e0');
+  R(278,36,36,90,'#5a4a34');R(282,40,28,82,'#6f5c40');R(285,82,3,3,'#dcb');
+  person(296,138,{hair:'#333',shirt:'#34507a',pants:'#333',dir:-1,hat:'#34507a'});
+ },
+ hs:[
+  {id:'konge',n:'portrættet',r:[150,14,28,44],Se:'Kong Frederik den Niende. Han ser ned på dig. Det gør alle herinde.'},
+  {id:'vindue',n:'vinduet',r:[60,18,60,40],Se:'København. Derude sker der ting. Herinde bliver de journaliseret.'},
+  {id:'trae',n:'gummitræet',r:[4,60,36,66],wx:44,Se:'Et gummitræ. Det har siddet i ministeriet længere end de fleste fuldmægtige og er omtrent lige så meddelsomt.',Tal:'Du betror gummitræet dine karriereplaner. Det dømmer dig ikke. Det er derfor, alle taler med det.',
+   Tag:G=>{if(G.f.noegle)return'Der er kun blade tilbage. Og en svag duft af hemmeligheder.';G.f.noegle=1;give('noegle');pt('noegle');return'Mellem bladene glimter noget. En lille nøgle! Gummitræet vidste mere, end det lod til.'}},
+  {id:'bunke',n:'papirbunken',r:[60,84,20,16],wx:70,Se:'En bunke af Blanket 27B, som bruges til at rekvirere flere eksemplarer af Blanket 27B.',
+   Tag:G=>{if(has('blanket')||G.f.artikel)return'Én blanket er rigeligt. Sagde ingen nogensinde herinde.';give('blanket');return'Du tager en Blanket 27B. Bagsiden er helt blank. Det er forsiden på en måde også.'}},
+  {id:'skrive',n:'skrivemaskinen',r:[82,82,26,18],wx:95,Se:'En Olivetti. Den har skrevet 4.000 notater, og ingen af dem er blevet læst.',
+   Brug:G=>G.f.artikel?'Du har skrevet nok for i dag. Sagde han og mente det ikke.':'Du har ikke noget at skrive på. Alt papir herinde er blanketter.',
+   med:{blanket:G=>{if(!G.f.tlf)return'Du har ikke noget at skrive om. Bortset fra referatet af mødet om mødereferater.';drop('blanket');give('artikel');G.f.artikel=1;pt('artikel');return['Du ruller blanketten i med bagsiden opad og skriver.','40 minutter senere har du en analyse af dansk eksport, som er klarere end alt, ministeriet har produceret siden 1958.','Den er ikke stemplet. Herinde findes den derfor ikke.']}}},
+  {id:'tlf',n:'telefonen',r:[112,84,22,16],wx:120,Se:G=>G.f.tlf?'Telefonen. Den tier nu. Det er dit træk.':'Telefonen ringer. Ingen andre reagerer. Der er ikke oprettet en sag på det.',
+   Brug:G=>tlf(G),Tal:G=>tlf(G),Tag:G=>tlf(G)},
+  {id:'skab',n:'arkivskabets skuffe',r:[150,64,32,62],wx:142,Se:G=>G.f.stempel?'Skuffen står åben og tom. Systemet er sårbart.':'Arkivskabet. Nederste skuffe er mærket "STEMPLER. ADGANG KUN MED NØGLE OG FORMÅL".',
+   Brug:G=>G.f.stempel?'Tom.':'Låst. Naturligvis.',Tag:G=>G.f.stempel?'Tom.':'Låst. Naturligvis.',
+   med:{noegle:G=>{drop('noegle');give('stempel');G.f.stempel=1;pt('stempel');return['Nøglen passer. Skuffen glider op.','Der ligger det. Ministeriets GODKENDT-stempel. Du mærker magten strømme op gennem armen.']}}},
+  {id:'chef',n:'kontorchefen',r:[218,72,30,28],wx:190,Se:'Kontorchefen. Han har ikke smilet siden Genforeningen.',
+   Tal:['Kontorchefen: Reckweg! Intet forlader dette ministerium uden stempel.','Knud: Heller ikke medarbejdere?','Kontorchefen: Især ikke medarbejdere.','Knud: De er god nok på bunden, hr. kontorchef. Det er bare en skam, der er så langt derned.','Kontorchefen: Det bliver noteret, Reckweg.'],
+   med:{artikel:'Kontorchefen: Ustemplet. Afvist. Og skrevet på bagsiden af en 27B? Det bliver noteret.',stemplet:'Kontorchefen: Hm. Stemplet. Så er det jo ikke min sag længere. Buddet tager udgående post.',stempel:'Du vælger at lade være med at vifte med det foran ham.'}},
+  {id:'bud',n:'cykelbuddet',r:[284,98,24,42],wx:268,Se:'Ministeriets cykelbud. Den eneste herinde, der bevæger sig hurtigere end en skrivelse.',
+   Tal:['Buddet: Jeg kører forbi Børsen om lidt.','Buddet: Men jeg tager kun stemplet post med. Reglerne, De ved.'],
+   med:{artikel:'Buddet: Ikke stemplet. Så har jeg aldrig set den.',stemplet:G=>{drop('stemplet');pt('sendt');finish(['Buddet: Stemplet og det hele. Så kører vi.','Han forsvinder ned ad trappen. Du venter. Du journaliserer en kop kaffe.','Næste morgen ringer telefonen igen.','Børsen: Reckweg? Hvornår kan De begynde som redaktionschef?','Knud: Jeg skal lige udfylde en Blanket 27B.','Det er 1971. Du er 26 år og redaktionschef på Børsen.'])}}},
+ ],
+ hint:G=>!G.f.tlf?'Telefonen ringer. BRUG den.':!G.f.artikel?(has('blanket')?'Brug blanketten med skrivemaskinen.':'Du mangler papir. TAG fra papirbunken på skrivebordet.'):!G.f.stempel?(has('noegle')?'Brug nøglen med arkivskabet.':'Stemplet er låst inde. Gummitræet i hjørnet gemmer på noget. TAG.'):has('stempel')&&has('artikel')?'Brug stemplet med artiklen i din lomme: tryk Brug, vælg stemplet, og klik på artiklen.':'Giv den stemplede artikel til cykelbuddet ved døren.'
+},
+/* 4 */{
+ card:['Senere','Et lille kontor, søndag nat',['1971: Du bliver redaktionschef på Børsen. 1973: Du bliver far til Ditte. Kun den ene af de to titler er på livstid.','1977: ISS, hvor du får ansvaret for kommunikation, branding, strategi og HR. På én gang.','Og så en søndag nat sidder du sammen med en lille flok, der vil starte et ugebrev. Det skal ud i morgen tidlig. Det har ikke noget navn endnu.']],
+ k:()=>({s:1,hair:'#4a2a1a',shirt:'#e8e4d8',pants:'#3a3f55',tie:'#7a2a2a'}),start:150,
+ draw(G,t){
+  room('#3b3558',null,'#4a3a2e','#3f3126');
+  R(126,16,50,40,'#55507a');R(129,19,44,34,'#0e0c22');R(160,24,8,8,'#f4ecd0');for(const[a,b]of[[134,24],[146,40],[152,28],[168,44]])R(a,b,1,1,'#fff');
+  R(60,24,22,28,'#f4f0e0');R(60,24,22,7,'#c0392b');T('SØN',71,30,'#fff',5,'center');T('7',71,46,'#222',10,'center');
+  R(96,24,16,16,'#f4f0e0');R(103,26,1,7,'#222');R(104,32,5,1,'#222');
+  R(18,100,66,5,'#7a5a34');R(22,105,5,21,'#5f4526');R(75,105,5,21,'#5f4526');R(36,90,22,10,'#2b2b2b');R(39,84,16,6,'#eee');
+  if(!G.f.stol){R(92,106,14,3,'#8a6a3a');R(92,92,3,14,'#8a6a3a');R(93,109,2,17,'#6a4e28');R(103,109,2,17,'#6a4e28')}
+  R(112,100,62,5,'#7a5a34');R(116,105,5,21,'#5f4526');R(165,105,5,21,'#5f4526');
+  if(!G.f.papir){R(128,96,26,4,'#f4f0e0');R(134,88,14,8,SK);R(134,86,14,4,'#3a2a1a');R(150,90,14,8,'#5a7a9a');T(t%50<25?'z Z':'Z z',150,82,'#fff',6)}
+  else person(142,116,{sit:1,hair:'#3a2a1a',shirt:'#5a7a9a',pants:'#333'});
+  R(184,104,22,4,'#555');R(188,108,3,18,'#444');R(199,108,3,18,'#444');R(186,100,18,4,'#a33');
+  if(!G.f.kande){R(190,88,10,12,'#ddd');R(200,90,3,6,'#ddd');R(192,84,6,4,'#bbb');if(t%40<20)R(194,78,1,4,'#aaa')}
+  R(228,40,74,3,'#7a5a34');R(232,43,3,8,'#5f4526');R(295,43,3,8,'#5f4526');R(240,30,8,10,'#6a8a5a');R(252,28,10,12,'#8a5a3a');
+  if(!G.f.svaerte){R(276,28,8,12,'#111');R(278,24,4,4,'#333');R(277,32,6,4,'#eee')}
+  R(236,94,62,32,'#6f7480');R(240,82,38,14,'#8a909c');R(282,84,12,10,'#555');R(296,86,3,14,'#333');R(294,84,7,3,'#333');R(244,100,46,3,'#444');
+  if(G.f.sv)R(246,86,6,6,'#111');
+ },
+ hs:[
+  {id:'vindue',n:'vinduet',r:[126,16,50,40],Se:'Nat over København. Alle fornuftige mennesker sover. Det er derfor, I kan arbejde i fred.'},
+  {id:'kalender',n:'kalenderen',r:[60,24,22,28],wx:72,Se:G=>{if(G.f.navn)return'Søndag. I morgen mandag. Navnet er på plads.';G.f.navn=1;pt('navn');return['Kalenderen viser søndag. I morgen er det mandag.','Og brevet skal ligge hos læserne om morgenen. Mandag morgen.','Vent lidt.','Knud: Mandag Morgen.','Navnet er fundet. Det tog tre måneders møder og et blik på en kalender.']}},
+  {id:'ur',n:'uret',r:[96,24,16,16],Se:'Kvart over tre. Om natten. Du har haft bedre idéer end dette tidspunkt.'},
+  {id:'skrive',n:'skrivemaskinen',r:[34,82,26,18],wx:50,Se:'Skrivemaskinen står klar. Der sidder ikke papir i.',Brug:'Der er ikke noget papir. Hele oplaget ligger under din kollegas kind.',
+   med:{papir:G=>{if(!G.f.navn)return'Du mangler stadig et navn til ugebrevet. "Brev fra Nogle Folk i et Lille Lokale" fik ikke opbakning. Kig dig lidt omkring.';drop('papir');give('manus');G.f.manus=1;pt('manus');return['Du skriver. Du stryger. Du skriver igen.','Øverst står der MANDAG MORGEN. Nedenunder står resten af det, landets beslutningstagere har brug for at vide.','Det er godt. Nu skal det bare trykkes.']}}},
+  {id:'stol',n:'stolen',r:[90,90,18,36],wx:84,if:G=>!G.f.stol,Se:'En stol. Robust. Stabelbar. Mere ambitiøs, end den ser ud til.',
+   Tag:G=>{G.f.stol=1;give('stol');pt('stol');return'Du stikker stolen i lommen. I den slags spil spørger man ikke hvordan.'}},
+  {id:'kollega',n:'kollegaen',r:[124,80,44,24],wx:108,Se:G=>G.f.papir?'Din kollega. Vågen, i teknisk forstand.':'Din kollega sover med kinden på hele papirlageret. Han har arbejdet siden fredag.',
+   Tal:G=>G.f.papir?'Kollegaen: Sig til, når vi er udkommet. Eller gået konkurs.':['Knud: Hallo? Vi går i trykken.','Kollegaen: Zzz... deadline... zzz.','Ord er ikke nok. Der skal stærkere midler til.'],
+   Tag:G=>G.f.papir?'Ham får du brug for i morgen.':'Du hiver i papiret. Han griber fat i søvne. Journalister slipper aldrig en kilde.',
+   med:{kande:G=>{drop('kande');give('papir');G.f.papir=1;pt('papir');return['Du holder kanden under hans næse. Han slår øjnene op som en mand, der er blevet ringet op af en minister.','Kollegaen: Hvad... er vi udkommet?','Knud: Ikke endnu. Du ligger på oplaget.','Han rækker dig papirstakken. Den er varm.']}}},
+  {id:'kande',n:'kaffekanden',r:[186,78,20,24],wx:176,if:G=>!G.f.kande,Se:'En kaffekande. Indholdet har stået siden fredag og har udviklet personlighed.',
+   Tag:G=>{G.f.kande=1;give('kande');pt('kande');return'Du tager kaffekanden. Den bobler svagt, selvom pladen er slukket.'}},
+  {id:'hylde',n:'hylden',r:[228,22,74,22],wx:256,Se:G=>G.f.svaerte?'Hylden. Nu uden sværte.':'En hylde, sat op af en meget høj mand. Deroppe står en flaske tryksværte.',
+   Tag:G=>G.f.svaerte?'Der er ikke mere deroppe, du skal bruge.':'For højt oppe. Du er mange ting, men ikke to meter.',
+   med:{stol:G=>{if(G.f.svaerte)return'Du har været deroppe. Udsigten var den samme.';drop('stol');give('svaerte');G.f.svaerte=1;pt('svaerte');return['Du hiver stolen op af lommen, stiller dig på den og når lige akkurat flasken.','Stolen bliver stående. Den har gjort sin pligt.']}}},
+  {id:'dup',n:'duplikatoren',r:[236,80,66,46],wx:226,Se:G=>G.f.sv?'Duplikatoren er smurt og klar. Den mangler bare noget at trykke.':'En duplikator. Hjertet i ethvert medieimperium med et budget på nul. Den er løbet tør for sværte.',
+   Brug:G=>G.f.sv?'Du drejer håndsvinget. Der kommer blanke ark ud. Den skal have et manuskript.':'Du drejer håndsvinget. Den hoster tørt.',
+   med:{svaerte:G=>{drop('svaerte');G.f.sv=1;return'Du hælder sværte på. Lidt på maskinen, lidt på gulvet og noget på skjorten. Det var den gode skjorte.'},
+    manus:G=>{if(!G.f.sv)return'Du lægger manuskriptet i og drejer. Arkene kommer ud helt hvide. Maskinen mangler sværte.';drop('manus');pt('tryk');finish(['Du lægger manuskriptet i og drejer håndsvinget.','Ka-tjunk. Ka-tjunk. Ka-tjunk.','Det første nummer af Mandag Morgen ruller ud af maskinen. Det lugter af sprit og store planer.','Kollegaen: Tror du, der er nogen, der gider læse det?','Knud: Kun dem, der bestemmer.','Det viser sig at være en ganske god målgruppe.','Knud: Og hvorfor udkommer vi mandag? Fordi søndag var optaget. Hu hu hi hi.','Kollegaen lægger hovedet ned på bordet igen.'])}}},
+ ],
+ hint:G=>!G.f.navn?'Ugebrevet mangler et navn. SE på kalenderen på væggen.':!G.f.papir?(has('kande')?'Brug kaffekanden med din sovende kollega.':'Din kollega sover på papiret. TAG kaffekanden.'):!G.f.manus?'Brug papirstakken med skrivemaskinen.':!G.f.svaerte?(has('stol')?'Brug stolen med hylden.':'Sværten står for højt. TAG stolen.'):!G.f.sv?'Brug sværten med duplikatoren.':'Brug manuskriptet med duplikatoren.'
+},
+/* 5 */{
+ card:['1984','Hjemme, tyve minutter før brylluppet',['Du har haft kærester, der blev kendte fra fjernsyn og ugeblade. En Suzanne. En Ulla. Det taler vi ikke mere om.','1983: Frederik kommer til verden. 1984: Du skal giftes med Anja. I dag. Om tyve minutter.','Du mangler en jakke, et slips og en ring. Ellers er du helt klar.']],
+ k:G=>({s:1,hair:'#4a2a1a',shirt:G.f.jakke?'#2a2d3d':'#f2efe6',pants:'#2a2d3d',tie:G.f.slips?'#b03a5a':null}),start:150,
+ draw(G,t){
+  room('#d9c2a0',null,'#7a6a8a',null);R(0,56,320,5,'#e79aa8');R(0,63,320,2,'#7fc4c9');
+  R(14,36,52,90,'#8a5a34');R(17,39,22,84,'#9a6a40');R(41,39,22,84,'#9a6a40');R(36,78,2,6,'#dcb');R(42,78,2,6,'#dcb');
+  R(78,46,26,3,'#5a3a22');for(const a of[82,90,98])R(a,49,2,4,'#5a3a22');
+  if(!G.f.jakke){R(84,52,16,34,'#2a2d3d');R(82,54,3,24,'#2a2d3d');R(99,54,3,24,'#2a2d3d');R(90,52,4,10,'#f2efe6')}
+  R(116,84,78,14,'#3f8f8a');R(116,96,78,26,'#368079');R(112,92,8,30,'#2f6f69');R(190,92,8,30,'#2f6f69');
+  person(150,112,{s:.85,sit:1,hair:'#8a5a2a',long:1,shirt:'#f2c94c',pants:'#4a6aa8'});
+  R(140,78,2,4,'#222');R(158,78,2,4,'#222');R(140,77,20,1.5,'#222');
+  R(206,44,46,82,'#6a4a2a');for(let i=0;i<4;i++){R(209,47+i*20,40,17,'#3a2a1a');for(let j=0;j<7;j++)R(211+j*5,50+i*20,4,14,['#c0392b','#2f6f9f','#e8c020','#3f8f5a','#eee','#8a4a8a','#d8752e'][(i*3+j)%7])}
+  if(!G.f.bamse){R(224,32,10,12,'#b07a3a');R(223,29,4,4,'#b07a3a');R(231,29,4,4,'#b07a3a');R(226,35,2,2,'#111')}
+  const bx=186,by=150;R(bx-6,by-8,12,8,'#9cc7e6');R(bx-4,by-16,8,8,SK);R(bx-4,by-17,8,2,'#d8b060');R(bx-1,by-13,1.5,1.5,'#222');R(bx+2,by-13,1.5,1.5,'#222');R(bx-8,by-3,4,3,SK);R(bx+4,by-3,4,3,SK);
+  if(!G.f.ring&&t%40<10)R(bx,by-10,2,1,'#ffd75e');
+  if(G.f.ring){R(bx+8,by-10,6,8,'#b07a3a');R(bx+8,by-13,3,3,'#b07a3a')}
+  R(272,36,38,90,'#f2efe6');R(276,40,30,82,'#e2ddd0');R(279,82,3,3,'#b8962e');
+  R(282,16,18,16,'#f4f0e0');R(290,18,1,7,'#222');R(291,24,6,1,'#c0392b');
+ },
+ hs:[
+  {id:'ur',n:'uret',r:[282,16,18,16],Se:'Tyve minutter. Nitten. Uret har aldrig gået hurtigere.'},
+  {id:'skab',n:'klædeskabet',r:[14,36,52,90],wx:72,Se:'Klædeskabet. Et sted derinde hænger præcis ét slips, der passer til i dag.',
+   Tag:G=>skab(G),Brug:G=>skab(G)},
+  {id:'jakke',n:'jakken',r:[80,46,24,42],wx:110,if:G=>!G.f.jakke,Se:'Din pæne jakke. Nypresset. Det bliver den ikke ved med at være.',
+   Tag:G=>{G.f.jakke=1;give('tier');pt('jakke');return['Du tager jakken på. Den sidder, som den skal.','I inderlommen ligger en tier. Du ville ønske, det var ringen.']}},
+  {id:'ditte',n:'Ditte',r:[136,74,28,44],wx:128,Se:'Ditte, elleve år. Hun har walkman på og et overblik, du misunder hende.',
+   Tal:G=>G.f.bamse?'Ditte: Skynd dig nu, far. Anja venter ikke for evigt. Måske ti minutter mere.':['Ditte: Far, du skal giftes om tyve minutter, og du ligner én, der leder efter noget.','Knud: Ringen er væk.','Ditte: Frederik havde den i hånden før. Og så i munden. Han giver ikke slip, før han får sin bamse.','Ditte: Den står oppe på reolen. Jeg kan godt klatre derop. Det koster en tier.'],
+   med:{tier:G=>{drop('tier');give('bamse');G.f.bamse=1;pt('bamse');return['Ditte: Tak. God forretning.','Hun klatrer op ad reolen som en egern med lommepenge og rækker dig bamsen.','Du har lige betalt din datter for at hjælpe dig med at blive gift. Det er helt normalt.']}}},
+  {id:'reol',n:'reolen',r:[206,26,46,100],wx:214,Se:G=>G.f.bamse?'Reolen. Fuld af bøger, du har læst, og nogle, du siger, du har læst.':'Reolen. Helt oppe på toppen sidder Frederiks bamse og kigger ned.',
+   Tag:G=>G.f.bamse?'Du har ikke tid til at læse nu.':'Du strækker dig. Jakkesømmene knager advarende. Du er nødt til at sende en lettere medarbejder derop.'},
+  {id:'fred',n:'Frederik',r:[176,130,22,22],wx:164,Se:G=>G.f.ring?'Frederik og bamsen. Fred i vor tid.':'Frederik, et år. Han ser uskyldig ud. Det er han ikke.',Brug:G=>G.f.ring?['Du kilder Frederik på maven. Han griner, så hele kroppen ryster.','Knud: Hu hu hi hi!']:['Du kilder Frederik på maven. Han griner med hele ansigtet.','Men tænderne er klemt sammen om ringen. Drengen kan grine med lukket mund. Det har han fra sin mor.'],
+   Tal:G=>G.f.ring?'Frederik: Bam-bam.':['Knud: Frederik. Har du set fars ring?','Frederik: Gah!','Han åbner munden på vid gab. Derinde glimter noget gyldent.'],
+   Tag:G=>G.f.ring?'Ham tager I med. Han skal bare ikke bære ringen.':'Du prøver at lirke ringen ud. Han bider. Han har fire tænder og bruger dem alle.',
+   med:{bamse:G=>{drop('bamse');give('ring');G.f.ring=1;pt('ring');return['Frederik ser bamsen, hviner og spytter ringen ud i din hånd.','Du tørrer den af i bukserne.','En dag laver den dreng et computerspil om dig. Det ved du heldigvis ikke endnu.']},tier:'Han putter den i munden. Du får den tilbage. Du vasker hænder senere.'}},
+  {id:'doer',n:'døren',r:[272,36,38,90],wx:262,Se:'Døren. På den anden side venter Anja og resten af dit liv.',
+   Brug:G=>{const m=[];if(!G.f.jakke)m.push('jakke');if(!G.f.slips)m.push('slips');if(!has('ring'))m.push('ring');
+    if(m.length)return'Du tager i håndtaget og ser dig selv i spejlet. Du mangler stadig: '+m.join(', ')+'. Så bliver man ikke gift.';
+    pt('gift');finish(['Du retter på slipset, lægger hånden på ringen i lommen og åbner døren.','Der står hun.','Anja: Du kom.','Knud: Selvfølgelig.','Anja: Ringen er våd.','Knud: Det er en lang historie. Den handler om din søn.','Anja: Knud. Ingen jokes under vielsen.','Knud: Ikke én?','Anja: Du er god nok på bunden. Det er bare en skam, der er så langt derned.','Hun har lært replikken. Du er solgt.','I siger ja. Begge to. Højt og tydeligt. Og I siger det stadig.'])}},
+ ],
+ hint:G=>!G.f.jakke?'TAG jakken på knagen.':!G.f.slips?'TAG slipset i klædeskabet.':!G.f.bamse?'TAL med Ditte, og giv hende tieren fra jakkelommen.':!G.f.ring?'Brug bamsen med Frederik.':'BRUG døren. Anja venter.'
+},
+/* 6 */{
+ card:['1996','Strandvejen 130A, Vejle',['1985: Adam. 1987: Julie. Fire børn. Du holder op med at tælle sokker.','1989: Familien flytter til Kristian Zahrtmanns Plads.','1996: LEGO kalder dig til Jylland som Director Group Communication. Hele København bliver pakket i flyttekasser og kørt til Vejle Fjord.','Billund venter på din tale til pressemødet. Den ligger i en af kasserne.']],
+ k:()=>({s:1,hair:'#8a8a86',shirt:'#e8c84a',pants:'#55452a',beard:'#b8a898'}),start:150,
+ draw(G,t){
+  room('#e6e2d6',null,'#c9a56a','#b8935a');
+  R(86,14,128,62,'#fff');R(90,18,120,54,'#a9d8f2');R(90,46,120,26,'#3f7fb0');R(90,40,120,8,'#4f9a5a');R(120,36,40,6,'#4f9a5a');
+  const sx=100+(t/6)%100;R(sx,50,8,2,'#fff');R(sx+3,42,1,8,'#fff');R(sx+4,43,4,6,'#f4ecd0');R(149,18,2,54,'#fff');
+  box(12,94,42,32,'KØKKEN');if(!G.f.saks)R(30,90,2,6,'#999');
+  box(58,100,42,26,'DIVERSE',!G.f.tale);
+  R(108,104,34,4,'#7a5a34');R(112,108,3,18,'#5f4526');R(135,108,3,18,'#5f4526');R(113,94,24,10,'#d9d5c8');R(117,90,16,4,'#f4f0e0');R(128,97,6,4,'#2a2a2a');
+  if(G.f.fax)R(138,100,1,18,'#222');
+  R(150,102,44,4,'#7a5a34');R(154,106,3,20,'#5f4526');R(187,106,3,20,'#5f4526');R(160,82,22,18,'#cfcabb');R(163,85,16,12,'#1b2a5a');
+  if(t%30<20)R(166,90,3,5,'#fff');R(172,88,5,3,'#5c5');
+  person(176,122,{s:.8,sit:1,hair:'#8a5a2a',shirt:'#c0392b',pants:'#34507a',dir:-1});
+  person(212,150,{s:.7,hair:'#a8743a',shirt:'#2f6f9f',pants:'#444'});
+  R(224,134,22,16,'#e8c020');R(224,128,22,6,'#c0392b');R(230,140,5,10,'#2f6f9f');R(238,138,5,5,'#fff');
+  if(!G.f.klods)R(196,158,6,3,'#c0392b');
+  const j=G.f.ledning?0:Math.abs(Math.sin(t/8))*6;
+  person(264,146-j,{s:.66,hair:'#d8b060',long:1,shirt:'#f29ac0',dress:'#f29ac0',pants:SK,dir:-1});
+  if(!G.f.ledning){const up=Math.sin(t/8)>0;R(256,up?114:146,16,1,'#222');R(256,up?114:130,1,up?16:16,'#222');R(271,up?114:130,1,16,'#222')}
+  else if(G.f.isgivet){R(257,131,3,5,'#d8a85a');R(256,127,5,4,'#fff')}
+  R(284,46,30,80,'#f4f4f0');R(284,82,30,2,'#bbb');R(287,60,2,12,'#999');R(287,92,2,12,'#999');
+ },
+ hs:[
+  {id:'vindue',n:'vinduet',r:[86,14,128,62],Se:'Vejle Fjord. Smukt. Roligt. Du er københavner, så du venter på, at der sker noget.'},
+  {id:'k1',n:'kassen "Køkken"',r:[12,88,42,38],wx:36,Se:'Flyttekassen mærket KØKKEN. Den er som den eneste åbnet. Prioriteterne er i orden.',
+   Tag:G=>k1(G),Brug:G=>k1(G)},
+  {id:'k2',n:'kassen "Diverse"',r:[58,100,42,26],wx:82,Se:G=>G.f.tale?'Kassen DIVERSE. Åbnet og gennemrodet.':'Kassen DIVERSE. Der er sytten kasser mærket DIVERSE. Det her er den med talen. Den er tapet til med fire lag flyttemandstape.',
+   Tag:G=>G.f.tale?'Resten er ledninger, ingen ved hvad passer til.':'Tapen giver sig ikke. Flyttemænd tager deres tape alvorligt.',Brug:G=>G.f.tale?'Tom for alt vigtigt.':'Du flår i tapen med neglene. Tapen vinder.',
+   med:{saks:G=>{if(G.f.tale)return'Den er åben.';G.f.tale=1;give('tale');pt('tale');return['Du klipper tapen over. Kassen åbner sig.','Mellem et fondue-sæt og en pose løse kabler ligger talen til pressemødet.']}}},
+  {id:'fax',n:'faxen',r:[108,88,34,20],wx:124,Se:G=>G.f.fax?'Faxen er tilsluttet og summer forventningsfuldt.':'En faxmaskine. Fremtidens teknologi. Telefonledningen mangler.',
+   Brug:G=>G.f.fax?'Den vil have noget at sende.':'Død. Der sidder ingen ledning i.',
+   med:{ledning:G=>{drop('ledning');G.f.fax=1;return'Du sætter ledningen i. Faxen vågner med et bip, der lyder som fremtiden.'},
+    tale:G=>{if(!G.f.fax)return'Du lægger talen i. Der sker ingenting. Faxen har ingen forbindelse til omverdenen. Der mangler en ledning.';drop('tale');pt('fax');finish(['Du lægger talen i og trykker SEND.','Bip. Krrrr. Bip. Tre sider glider igennem og dukker op i Billund.','Telefonen ringer. Billund er tilfredse. De spørger, om "klods" virkelig skal stå der 41 gange.','Knud: Ja.','Udenfor ligger fjorden blank. Indenfor er der 31 kasser tilbage. Du sætter dig og kigger på vandet.'])}}},
+  {id:'fred',n:'Frederik ved computeren',r:[156,80,34,44],wx:146,Se:'Frederik, 13 år, ved familiens computer. Han spiller et adventurespil. Dit adventurespil.',
+   Tal:['Knud: Er det ikke mit spil, det dér?','Frederik: Jeg kigger bare.','Han er nået længere end dig. Det siger du ikke højt.','Knud: Hvad var det bedste ved din oplevelse?','Frederik: Faaar. Jeg er midt i det.'],Brug:['Du kilder Frederik i nakken, mens han spiller.','Frederik: FAR! Jeg døde!','Knud: Hu hu hi hi!'],Tag:'Du får ikke computeren tilbage før sengetid. Tidligst.'},
+  {id:'adam',n:'Adam',r:[202,124,46,28],wx:200,Se:'Adam, 11 år. Han har bygget noget stort af LEGO. Flyttekasserne med klodser blev som de første pakket ud.',
+   Tal:['Adam: Se, far! Det er dit nye kontor.','Knud: Hvorfor er der en rutsjebane fra taget?','Adam: Så du kan komme hurtigt hjem.','Det er den bedste idé, nogen i koncernen har fået i år.'],Brug:['Du kilder Adam. Han vælter ned i sit byggeri.','Adam: Far! Du ødelagde receptionen!','Knud: Hu hu hi hi. Den var alligevel underbemandet.']},
+  {id:'klods',n:'LEGO-klodsen på gulvet',r:[192,154,14,8],wx:199,if:G=>!G.f.klods,Se:'En enlig rød klods midt på gulvet. Den ligger og venter på en bar fod.',
+   Tag:G=>{G.f.klods=1;give('klods');pt('klods');return['Du går hen for at samle den op og træder på den i stedet.','AV FOR S...','SPILLET ER SLUT. Du døde af smerte på Strandvejen 130A.','Nej, pjat. Men det føltes sådan. Du samler klodsen op med værdigheden i behold. Delvist.','Adam: Far, hvad var det bedste ved din oplevelse?','Han har lært det af den bedste.']}},
+  {id:'julie',n:'Julie',r:[254,112,22,36],wx:240,Se:G=>G.f.ledning?'Julie, 9 år. Hun spiser is med stor koncentration.':'Julie, 9 år. Hun sjipper. Sjippetovet ligner mistænkeligt en telefonledning.',
+   Tal:G=>G.f.ledning?'Julie: Tak for isen, far. Du må gerne låne ledningen en anden gang også.':['Knud: Julie, er det ledningen til faxen?','Julie: Det er et sjippetov nu.','Knud: Far skal bruge den til arbejde.','Julie: Hvad får jeg for den?','Hun har arvet dine forhandlingsevner. Det er et problem.'],Brug:G=>G.f.ledning?['Du kilder Julie. Hun taber næsten isen.','Julie: Faaar!','Knud: Hu hu hi hi!']:['Du prøver at kilde Julie, så hun slipper ledningen.','Hun sjipper bare hurtigere. Du rammer ved siden af og får ledningen over fingrene.'],
+   med:{is:G=>{drop('is');give('ledning');G.f.ledning=1;G.f.isgivet=1;pt('ledning');return['Julie: Okay. Aftale.','Hun tager isen og giver dig ledningen. Du har lige tabt en forhandling til en på ni.']},klods:'Julie: Den er Adams. Og der er blod på.'}},
+  {id:'fryser',n:'køleskabet',r:[284,46,30,80],wx:274,Se:'Køleskabet. Det første, flyttemændene satte strøm til. Det var også det, de fik drikkepenge for.',
+   Tag:G=>fry(G),Brug:G=>fry(G)},
+ ],
+ hint:G=>!G.f.tale?(has('saks')?'Brug saksen med kassen "Diverse".':'Du skal have noget at klippe tape med. Prøv kassen "Køkken".'):!G.f.ledning?(has('is')?'Giv isen til Julie.':'Julie vil have noget for ledningen. Kig i køleskabet.'):!G.f.fax?'Brug ledningen med faxen.':'Brug talen med faxen.'
+},
+/* 7 */{
+ card:['2021','Næstvedgade, København',['2000: Booz & Company. 2003: Hjem til København og Næstvedgade.','2004: Dit eget firma, Knud Reckweg Communication. Chefen er skrap, men retfærdig.','Og omkring 2021 flytter der en ny leder ind i lejligheden. Han har fire ben, og han har taget dine briller.']],
+ k:G=>({s:1,hair:'#e2e2e2',shirt:'#6a4a3a',pants:'#3a3f55',beard:'#d8d4cc',glasses:has('briller')||G.f.mail}),start:110,
+ draw(G,t){
+  room('#efe8d8',null,'#a8804e','#967040');
+  R(12,34,64,92,'#5a3a22');for(let i=0;i<4;i++){R(15,37+i*22,58,19,'#2e2018');for(let j=0;j<9;j++)if(!(i==1&&j>5))R(17+j*6,40+i*22,5,16,['#c0392b','#2f6f9f','#e8c020','#3f8f5a','#eee','#8a4a8a','#d8752e'][(i*2+j*3)%7])}
+  R(56,62,12,16,'#cfe6ea');R(56,60,12,3,'#b8962e');if(!G.f.godbid)for(const[a,b]of[[58,70],[62,72],[60,66]])R(a,b,4,3,'#8a5a2e');
+  R(88,84,36,14,'#7a2c3a');R(88,96,36,26,'#8a3444');R(84,92,6,30,'#6a2432');R(122,92,6,30,'#6a2432');
+  R(138,100,66,5,'#7a5a34');R(142,105,4,21,'#5f4526');R(196,105,4,21,'#5f4526');
+  R(156,86,26,14,'#333');R(158,88,22,10,G.f.mail?'#dfe':'#9cc7e6');R(152,100,34,2,'#555');
+  R(210,18,56,58,'#fff');R(214,22,48,50,'#bfe0f2');R(214,40,16,32,'#d8752e');R(230,36,16,36,'#e8c96a');R(246,42,16,30,'#9a4a3a');for(const a of[218,234,250])R(a,48,6,8,'#35506a');R(237,22,2,50,'#fff');
+  R(280,36,34,90,'#f2efe6');R(284,40,26,82,'#e2ddd0');R(286,82,3,3,'#b8962e');
+  R(270,56,6,3,'#5a3a22');if(!G.f.snor){R(272,59,2,26,'#c0392b');R(270,84,6,4,'#c0392b')}
+  dog(G.f.snorpaa?250:170,G.f.snorpaa?158:138,G.f.snorpaa?1:-1,G.f.briller&&!G.f.snorpaa?t:t*3,!G.f.briller);
+  if(G.f.snorpaa)R(262,140,1,10,'#c0392b');
+ },
+ hs:[
+  {id:'vindue',n:'vinduet',r:[210,18,56,58],Se:'Næstvedgade. Østerbro, som det skal være. Du begyndte på Mimersgade. Der er fire kilometer og 76 år imellem.'},
+  {id:'reol',n:'reolen',r:[12,34,64,92],wx:84,Se:'Reolen. En hel hylde er dine egne ting: Børsen, Mandag Morgen, taler, notater. Resten er bøger, du nok skal få læst.',Tag:'Ikke uden briller.'},
+  {id:'glas',n:'godbidsglasset',r:[54,58,16,22],wx:84,Se:G=>G.f.godbid?'Glasset med hundekiks. Der er rigeligt endnu. Balou fører regnskab.':'Et glas hundekiks med lever. Låget sidder løst, for det bliver åbnet ofte.',
+   Tag:G=>{if(G.f.godbid)return'Én ad gangen. Dyrlægen har sagt noget om det.';G.f.godbid=1;give('godbid');pt('godbid');return'Du tager en godbid. Under bordet holder nogen op med at trække vejret.'}},
+  {id:'stol',n:'lænestolen',r:[84,84,44,40],wx:132,Se:'Din lænestol. Der har du læst ganske mange aviser. Ligesom din far.',Brug:'Senere. Der er gæster på vej. Tror du nok. Du kan ikke læse mailen.'},
+  {id:'pc',n:'computeren',r:[152,84,34,18],wx:150,Se:G=>has('briller')||G.f.mail?'Skærmen står skarpt. Der ligger en ny mail fra børnene.':'Der er kommet en mail. Uden briller ligner skærmen en akvarel.',
+   Brug:G=>{if(G.f.mail)return'Mail: "Vi står nede på gaden om lidt. Tag Balou med."';if(!has('briller'))return'Du kniber øjnene sammen. Der står enten "Kære far" eller "Kontoudtog". Du skal bruge dine briller.';G.f.mail=1;pt('mail');return['Du tager brillerne på og læser.','Mail: "Kære far. Vi kommer forbi i dag. Alle fire. Tag Balou med ned på gaden og mød os. Kærlig hilsen Ditte, Frederik, Adam og Julie. PS: Anja laver boller i karry."','Alle fire på én gang. Og boller i karry. Det er ikke en almindelig dag.']},
+   med:{briller:G=>CH[6].hs.find(h=>h.id=='pc').Brug(G)}},
+  {id:'balou',n:'Balou',r:[155,118,34,24],wx:140,if:G=>!G.f.snorpaa,Se:G=>G.f.briller?'Balou. Familiens yngste og den eneste, der aldrig har sagt dig imod. Højt.':'Balou ligger under bordet med dine læsebriller i munden. Han ser ikke ud til at fortryde noget.',
+   Tal:G=>G.f.briller?'Balou: Vuf. Det betyder "tur". Alt betyder "tur".':['Knud: Balou. Slip.','Balou: Mmf.','Knud: Du er god nok på bunden, Balou. Det er bare en skam, der er så langt derned.','Balou logrer. Han er den første i 70 år, der tager det som en kompliment.'],
+   Brug:['Du kilder Balou bag øret. Bagbenet begynder at trampe af sig selv.','Knud: Hu hu hi hi.'],Tag:G=>G.f.briller?'Han er for tung at bære. Brug snoren.':'Du rækker ud efter brillerne. Balou bakker længere ind under bordet. Han kender spillet.',
+   med:{godbid:G=>{if(G.f.briller)return'Han har fået. Han lader, som om han ikke har.';drop('godbid');give('briller');G.f.briller=1;pt('briller');return['Balou taber brillerne med det samme og sluger godbidden uden at tygge.','Byttehandel. Det virkede på Hans Jørgen i 1951, og det virker nu.']},
+    snor:G=>{if(!G.f.mail)return'Balou springer op, men du ved ikke, hvor I skal hen endnu. Læs din mail først.';drop('snor');G.f.snorpaa=1;return['Du klikker snoren på. Balou går fra nul til propel på et halvt sekund.','Han står allerede ved døren.']}}},
+  {id:'snor',n:'hundesnoren',r:[266,54,12,36],wx:262,if:G=>!G.f.snor,Se:'Balous røde snor. Hvis du rører ved den, er der ingen vej tilbage.',
+   Tag:G=>{G.f.snor=1;give('snor');pt('snor');return'Du tager snoren ned fra knagen. Den klirrer. Under bordet rejser to ører sig.'}},
+  {id:'doer',n:'døren',r:[280,36,34,90],wx:268,Se:'Hoveddøren. Du er gået ud ad mange døre i dit liv. De fleste gange til noget bedre.',
+   Brug:G=>{if(!G.f.mail)return'Hvor skulle du gå hen? Find først ud af, hvad der står i den mail.';if(!G.f.snorpaa)return'Du går ikke nogen steder uden Balou. Det har han gjort helt klart. Han skal have snor på.';pt('ud');finish(['Du åbner døren. Balou trækker dig ned ad trappen i et tempo, der er uforeneligt med dine knæ.'])}},
+ ],
+ hint:G=>!G.f.briller?(has('godbid')?'Brug godbidden med Balou.':'Balou vil bestikkes. TAG en godbid fra glasset i reolen.'):!G.f.mail?'BRUG computeren. Nu kan du se.':!G.f.snor?'TAG hundesnoren ved døren.':!G.f.snorpaa?'Brug snoren med Balou.':'BRUG døren.'
+},
+/* 8: ending */{
+ card:['I dag','Næstvedgade, nede på gaden',['Du træder ud på fortovet. Solen står lavt over Østerbro.']],
+ k:()=>({s:1,hair:'#e2e2e2',shirt:'#6a4a3a',pants:'#3a3f55',beard:'#d8d4cc',glasses:1}),start:60,end:1,
+ auto:['Dernede står de. Anja. Ditte. Frederik. Adam. Julie.','Fire børn fra tre årtier, og de har alle sammen dine øjenbryn, når de er skeptiske.','Ditte: Hej far.','Frederik: Vi har lavet et spil om dig.','Knud: Er jeg helten?','Adam: Du er i hvert fald hovedpersonen.','Julie: Det er ikke helt det samme.','Knud: I er gode nok på bunden, alle sammen. Det er bare en skam, der er så langt derned.','Alle: FAR!','Knud: Hu hu hi hi!','Anja: Kom nu op. Der er boller i karry. Efter Gunhilds opskrift.','Balou: Vuf.','Mimersgade. Maine. Ministeriet. Børsen. Mandag Morgen. ISS. LEGO. Vejle. Næstvedgade.','Du har samlet på meget. Det bedste af det står lige her på fortovet.'],
+ draw(G,t){
+  R(0,0,320,90,'#bfe0f2');R(250,14,14,14,'#fff3b0');
+  const cols=['#d8752e','#e8c96a','#9a4a3a','#cfcabb','#7f9a8a','#d89a8a'];
+  for(let i=0;i<6;i++){R(i*54-2,26,54,96,cols[i]);R(i*54-2,22,54,5,'#5a4a44');for(let a=0;a<2;a++)for(let b=0;b<3;b++){R(i*54+6+a*24,34+b*24,12,14,'#35506a');R(i*54+6+a*24,34+b*24,12,2,'#fff')}R(i*54+18,98,14,24,'#3a2a22')}
+  R(0,122,320,22,'#b8b2a6');R(0,144,320,26,'#6a6a70');for(let i=0;i<320;i+=20)R(i,123,1,20,'#a39d92');
+  T('NÆSTVEDGADE',40,112,'#fff',5,'center');
+  person(124,142,{hair:'#c8b08a',long:1,shirt:'#e9e2cf',dress:'#7a2c3a',pants:SK,dir:-1});person(150,142,{hair:'#8a5a2a',long:1,shirt:'#2f6f9f',dress:'#2f6f9f',pants:SK,dir:-1});
+  person(176,142,{hair:'#8a5a2a',shirt:'#c0392b',pants:'#34507a',dir:-1});
+  person(202,142,{hair:'#a8743a',shirt:'#3f8f5a',pants:'#444',dir:-1});
+  person(228,142,{hair:'#d8b060',long:1,shirt:'#f29ac0',dress:'#b03a5a',pants:SK,dir:-1});
+  dog(G.kx+26,156,1,t*3,0);R(G.kx+8,134,10,1,'#c0392b');
+ },hs:[],hint:()=>''
+}];
+function tlf(G){if(G.f.tlf)return'Røret er lagt på. Børsen venter på din artikel inden fyraften.';G.f.tlf=1;pt('tlf');return['Du tager røret.','Børsen: Det er Dagbladet Børsen. Vi mangler en redaktionschef, og vi har hørt, at De kan skrive.','Knud: Jeg sidder i Udenrigsministeriet. Her skriver vi kun til hinanden.','Børsen: Send os en artikel om dansk eksport inden fyraften. Så taler vi om det.','Klik. Du ser dig omkring. Du har fire timer, en skrivemaskine og ikke ét blankt ark.']}
+function skab(G){if(G.f.slips)return'Resten er skjorter. Og en habit fra 1971, du ikke kan skilles fra.';G.f.slips=1;give('slips');pt('slips');return['Du roder skabet igennem og finder slipset. Du binder det på i første forsøg.','Det er dagens første succes. Nyd den.']}
+function k1(G){if(G.f.saks)return'Resten er grydelapper og en æggedeler, ingen kan huske at have købt.';G.f.saks=1;give('saks');pt('saks');return'Øverst i køkkenkassen ligger en saks. Det er det tætteste, du kommer på værktøj.'}
+function fry(G){if(G.f.is)return'Der er kun ærter tilbage. Dem kan man ikke forhandle med.';G.f.is=1;give('is');pt('is');return'Du åbner fryseren. En isvaffel. Den sidste. Du overvejer at spise den selv. Du er en større mand end som så.'}
+const COMBO={'stempel+artikel':G=>{drop('artikel');drop('stempel');give('stemplet');pt('stemplet');return['DUNK.','GODKENDT. Du har netop godkendt din egen opsigelse i praksis. Det er den hurtigste sagsbehandling i ministeriets historie.']}};
+
+/* ---------- engine ---------- */
+let kb=false,kf=null,keys={};
+let G=null,verb='Se',sel=null,queue=[],after=null,pending=null,tick=0,hotUntil=0,hover=null,snd=true,ac=null;
+const fresh=()=>({ch:0,f:{},inv:[],pts:{},kx:70,dir:1,tx:null});
+const has=id=>G.inv.includes(id);
+const give=id=>{if(!has(id))G.inv.push(id);renderInv()};
+const drop=id=>{G.inv=G.inv.filter(i=>i!=id);if(sel==id)sel=null;renderInv()};
+function beep(f,d=.08,dl=0){if(!snd)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.value=.04;o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+dl);o.stop(ac.currentTime+dl+d)}catch(e){}}
+function pt(id){if(G.pts[id])return;G.pts[id]=POINTS[id];beep(660);beep(880,.1,.09);renderScore()}
+const score=()=>Object.values(G.pts).reduce((a,b)=>a+b,0);
+function renderScore(){$('score').textContent='Point: '+score()+' af '+MAX}
+function save(){try{localStorage.setItem('knud-save',JSON.stringify({ch:G.ch,f:G.f,inv:G.inv,pts:G.pts}))}catch(e){}}
+function load(){try{return JSON.parse(localStorage.getItem('knud-save'))}catch(e){return null}}
+function show(id){for(const s of['title','card','game','end'])$(s).hidden=s!=id}
+
+function say(lines,cb){lines=[].concat(lines).filter(Boolean);if(!lines.length){cb&&cb();return}queue=queue.concat(lines);if(cb)after=cb;renderMsg()}
+function finish(lines){say(lines,()=>{G.ch++;G.f={};G.inv=[];sel=null;save();showCard()})}
+function advance(){if(!queue.length)return;queue.shift();beep(330,.03);if(!queue.length&&after){const a=after;after=null;a()}renderMsg()}
+function renderMsg(){const m=$('msg');m.textContent='';
+  if(queue.length){m.className='';let s=queue[0],who=null;for(const n of SPEAKERS)if(s.startsWith(n+': ')){who=n;s=s.slice(n.length+2)}
+    if(who){const w=document.createElement('span');w.className='who';w.textContent=who;m.append(w)}
+    m.append(s);const mo=document.createElement('span');mo.className='more';mo.textContent=' ▸ videre';m.append(mo)}
+  else{m.className='idle';m.textContent=sel?'Brug '+ITEMS[sel][0].toLowerCase()+' med '+(hover?hover.n:'...'):verb=='Gå'?'Gå hen til '+(hover?hover.n:'...'):verb+(verb=='Se'?' på ':verb=='Tal'?' med ':' ')+(hover?hover.n:'...')}}
+function renderVerbs(){const v=$('verbs');v.textContent='';['Gå','Se','Tal','Tag','Brug'].forEach((n,i)=>{const b=document.createElement('button');b.innerHTML='<span class="k">'+(i+1)+'</span>'+n;b.id='v'+n;if(n==verb&&!sel)b.className='on';b.onclick=()=>{verb=n;sel=null;renderVerbs();renderInv();renderMsg()};v.append(b)})}
+function renderInv(){const v=$('inv');v.textContent='';const l=document.createElement('span');l.className='lbl';l.textContent='Lommer:';v.append(l);
+  if(!G||!G.inv.length){const e=document.createElement('span');e.className='lbl';e.textContent='tomme';v.append(e)}
+  else G.inv.forEach((id,i)=>{const b=document.createElement('button');b.innerHTML=(i<5?'<span class="k">'+((i+6)%10)+'</span>':'');b.append(ITEMS[id][0]);b.id='i-'+id;if(sel==id)b.className='on';b.onclick=()=>invClick(id);v.append(b)});
+  renderVerbs()}
+function invClick(id){if(queue.length){advance();return}
+  if(sel&&sel!=id){const f=COMBO[sel+'+'+id]||COMBO[id+'+'+sel];sel=null;say(f?f(G):pick(DEF.med));renderInv();save();return}
+  if(sel==id){sel=null}else if(verb=='Se'){say(ITEMS[id][1]);return}else{sel=id;verb='Brug'}
+  renderInv();renderMsg()}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const hsList=()=>CH[G.ch].hs.filter(h=>!h.if||h.if(G));
+function hit(x,y){const l=hsList();for(let i=l.length-1;i>=0;i--){const[a,b,w,h]=l[i].r;if(x>=a&&x<a+w&&y>=b&&y<b+h)return l[i]}
+  let best=null,bd=7;for(const o of l){const[a,b,w,h]=o.r;const dx=Math.max(a-x,0,x-a-w),dy=Math.max(b-y,0,y-b-h),d=Math.hypot(dx,dy);if(d<bd){bd=d;best=o}}return best}
+function doAct(v,h,item){let hd,out;
+  if(item){hd=h.med&&h.med[item];out=hd===undefined?pick(DEF.med):typeof hd=='function'?hd(G):hd;sel=null}
+  else{hd=h[v];out=hd===undefined?pick(DEF[v]):typeof hd=='function'?hd(G):hd}
+  if(out)say(out);renderInv();renderMsg();if(G.ch<CH.length&&!CH[G.ch].end)save()}
+function click(x,y){if(queue.length){advance();return}if(CH[G.ch].end)return;
+  kb=false;const h=hit(x,y);
+  if(!h){G.tx=Math.max(10,Math.min(310,x));pending=null;return}
+  go(h)}
+const wxOf=h=>h.wx!=null?h.wx:Math.max(10,Math.min(310,h.r[0]+h.r[2]/2));
+function go(h){G.tx=wxOf(h);const v=verb,it=sel;pending=v=='Gå'&&!it?null:()=>{G.dir=(h.r[0]+h.r[2]/2)>=G.kx?1:-1;doAct(v,h,it)}}
+function outline(h,col){const[a,b,w,hh]=h.r;C.strokeStyle=col;C.lineWidth=1;C.strokeRect(a+.5,b+.5,w-1,hh-1);const tw=h.n.length*4.3+4;const lx=Math.max(1,Math.min(319-tw,a));R(lx,b-8<0?b+1:b-8,tw,8,'#15132b');T(h.n,lx+2,(b-8<0?b+1:b-8)+6,col,5)}
+function setKf(h){if(h!=kf){kf=h;hover=h;renderMsg()}}
+function nearest(){let best=null,bd=22;for(const h of hsList()){const d=Math.abs(wxOf(h)-G.kx);if(d<bd){bd=d;best=h}}setKf(best)}
+function cycle(d){const l=hsList().slice().sort((a,b)=>wxOf(a)-wxOf(b)||a.r[1]-b.r[1]);if(!l.length)return;let i=l.indexOf(kf);if(i<0){i=l.findIndex(h=>wxOf(h)>=G.kx);if(i<0)i=l.length-1;if(d<0&&i>0)i--}else i=(i+d+l.length)%l.length;setKf(l[i])}
+function showCard(){const c=CH[G.ch].card;$('cYr').textContent=c[0];$('cPl').textContent=c[1];const t=$('cTx');t.textContent='';for(const p of c[2]){const e=document.createElement('p');e.textContent=p;t.append(e)}show('card');$('bGo').focus()}
+function startScene(){const c=CH[G.ch];G.kx=c.start;G.tx=null;G.dir=1;pending=null;queue=[];after=null;sel=null;verb='Se';kf=null;hover=null;keys={};if(document.activeElement)document.activeElement.blur();
+  if(c.init&&!G.f._i){c.init(G);G.f._i=1}
+  show('game');renderInv();renderScore();renderMsg();
+  if(c.end){$('verbs').hidden=$('inv').hidden=$('util').hidden=true;G.tx=92;say(c.auto,showEnd)}
+  else{$('verbs').hidden=$('inv').hidden=$('util').hidden=false;save()}}
+function showEnd(){const s=score();$('eScore').textContent='Du fik '+s+' af '+MAX+' point.';
+  $('eRank').textContent='Din titel: '+(s>=MAX?'Chefredaktør for eget liv':s>=MAX*.8?'Director Group Everything':s>=MAX*.5?'Redaktionschef med potentiale':'Fuldmægtig med Blanket 27B');
+  try{localStorage.removeItem('knud-save')}catch(e){}show('end')}
+
+function frame(){tick++;
+  if(G&&!$('game').hidden){const c=CH[G.ch];
+    let fr=0;const kd=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);
+    if(kd&&!queue.length&&!c.end){G.tx=null;pending=null;G.dir=kd;G.kx=Math.max(10,Math.min(310,G.kx+kd*1.6));fr=1+Math.floor(tick/7)%2;nearest()}
+    else if(G.tx!=null){const d=G.tx-G.kx;if(Math.abs(d)<=1.6){G.kx=G.tx;G.tx=null;if(pending){const p=pending;pending=null;p()}}else{G.dir=d>0?1:-1;G.kx+=G.dir*1.6;fr=1+Math.floor(tick/7)%2}}
+    C=cx;C.setTransform(3,0,0,3,0,0);C.imageSmoothingEnabled=false;
+    c.draw(G,tick);
+    person(G.kx,160,Object.assign({dir:G.dir,frame:fr},c.k(G)));
+    if(Date.now()<hotUntil)for(const h of hsList())outline(h,'#ffb52e');
+    if(kb&&kf&&!queue.length&&!c.end&&hsList().includes(kf))outline(kf,'#58d6c4');
+  }
+  requestAnimationFrame(frame)}
+
+cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect();click((e.clientX-r.left)/r.width*320,(e.clientY-r.top)/r.height*170)});
+cv.addEventListener('mousemove',e=>{if(!G||queue.length)return;const r=cv.getBoundingClientRect();const h=hit((e.clientX-r.left)/r.width*320,(e.clientY-r.top)/r.height*170);if(h!=hover){hover=h;renderMsg()}});
+$('msg').onclick=()=>advance();
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key,onBtn=document.activeElement&&document.activeElement.tagName=='BUTTON';
+  if($('game').hidden){return}
+  if(k=='ArrowLeft'||k=='ArrowRight'){e.preventDefault();kb=true;keys[k]=1;return}
+  if(k==' '||k=='Enter'){if(onBtn)return;e.preventDefault();if(queue.length){advance();return}if(CH[G.ch].end)return;kb=true;if(!kf||!hsList().includes(kf))nearest();if(kf)go(kf);return}
+  if(queue.length||CH[G.ch].end)return;
+  if(k=='ArrowUp'||k=='ArrowDown'){e.preventDefault();kb=true;cycle(k=='ArrowDown'?1:-1);return}
+  const vi='12345'.indexOf(k)>=0?+k-1:'gstab'.indexOf(k.toLowerCase());
+  if(k.length==1&&vi>=0){verb=['Gå','Se','Tal','Tag','Brug'][vi];sel=null;renderInv();renderMsg();return}
+  const ii='67890'.indexOf(k);if(k.length==1&&ii>=0){if(G.inv[ii])invClick(G.inv[ii]);return}
+  if(k.toLowerCase()=='h'){say('Tip: '+CH[G.ch].hint(G));return}
+  if(k=='Escape'){sel=null;renderInv();renderMsg()}
+});
+document.addEventListener('keyup',e=>{delete keys[e.key]});
+window.addEventListener('blur',()=>{keys={}});
+$('bTip').onclick=()=>{$('bTip').blur();if(queue.length){advance();return}say('Tip: '+CH[G.ch].hint(G))};
+$('bHot').onclick=()=>{hotUntil=Date.now()+4000;$('bHot').blur()};
+$('bSnd').onclick=()=>{snd=!snd;$('bSnd').textContent='Lyd: '+(snd?'til':'fra')};
+$('bNew').onclick=()=>{G=fresh();showCard()};
+$('bCont').onclick=()=>{const s=load();G=Object.assign(fresh(),s);showCard()};
+$('bGo').onclick=startScene;
+$('bAgain').onclick=()=>{G=fresh();showCard()};
+
+function strip(){const s=$('strip').getContext('2d');C=s;C.setTransform(3,0,0,3,0,0);C.imageSmoothingEnabled=false;
+  R(0,0,320,60,'#24214a');R(0,50,320,10,'#35316b');
+  const ks=[[.58,'#4a2a1a','#e0d8c0','#5a4632'],[.92,'#4a2a1a','#c94a3a','#34507a'],[1,'#4a2a1a','#3a3f55','#3a3f55','#a33'],[1,'#4a2a1a','#e8e4d8','#3a3f55','#7a2a2a'],[1,'#4a2a1a','#2a2d3d','#2a2d3d','#b03a5a'],[1,'#8a8a86','#e8c84a','#55452a',null,0,'#b8a898'],[1,'#e2e2e2','#6a4a3a','#3a3f55',null,1,'#d8d4cc']];
+  const yrs=['1951','1963','1970','1980','1984','1996','2021'];
+  ks.forEach((k,i)=>{person(28+i*40,50,{s:k[0],hair:k[1],shirt:k[2],pants:k[3],tie:k[4],glasses:k[5],beard:k[6]});T(yrs[i],28+i*40,58,'#a9a3c9',5,'center')});
+  dog(296,50,-1,0,0);C=cx}
+function boot(d){const s=(d&&d.G)||null;if(s){G=Object.assign(fresh(),s);startScene()}else{show('title');$('bCont').hidden=!load()}
+  strip();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(strip);renderVerbs();requestAnimationFrame(frame)}
+try{window.claude?.hot?.snapshot(()=>G&&!$('game').hidden&&!CH[G.ch].end?{G:{ch:G.ch,f:G.f,inv:G.inv,pts:G.pts}}:{})}catch(e){}
+window.__t={get G(){return G},CH,doAct,advance,flush(){let n=0;while(queue.length&&n++<200)advance()},startScene,MAX,score};
+if(window.claude?.hot?.ready)window.claude.hot.ready(boot);else boot(window.claude?.hot?.data??{});
+})();
+</script>
+</body>
+</html>
